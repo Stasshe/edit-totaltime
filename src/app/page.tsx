@@ -1,7 +1,7 @@
 "use client";
 
 import JSZip from "jszip";
-import { ChangeEvent, FormEvent, useMemo, useState } from "react";
+import { type ChangeEvent, type SyntheticEvent, useMemo, useState } from "react";
 
 const APP_PROPS_PATH = "docProps/app.xml";
 
@@ -10,15 +10,6 @@ type Status =
   | { kind: "working"; message: string }
   | { kind: "success"; message: string }
   | { kind: "error"; message: string };
-
-function escapeXml(value: string) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&apos;");
-}
 
 function updateTotalTimeXml(xml: string, minutes: number) {
   const value = String(minutes);
@@ -31,8 +22,10 @@ function updateTotalTimeXml(xml: string, minutes: number) {
 }
 
 function buildDownloadName(fileName: string, minutes: number) {
-  const cleanName = fileName.replace(/\.(docx|docm|dotx|dotm)$/i, "");
-  return `${cleanName || "document"}-totaltime-${minutes}.docx`;
+  const match = fileName.match(/^(.*?)(\.(?:docx|docm|dotx|dotm))$/i);
+  const cleanName = match?.[1] || fileName || "document";
+  const extension = match?.[2] || ".docx";
+  return `${cleanName}-totaltime-${minutes}${extension}`;
 }
 
 export default function Home() {
@@ -57,7 +50,7 @@ export default function Home() {
     });
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!file) {
@@ -77,7 +70,9 @@ export default function Home() {
       const appProps = zip.file(APP_PROPS_PATH);
 
       if (!appProps) {
-        throw new Error("docProps/app.xml が見つかりません。Word の .docx ファイルか確認してください。");
+        throw new Error(
+          "docProps/app.xml が見つかりません。Word の .docx ファイルか確認してください。",
+        );
       }
 
       const xml = await appProps.async("string");
@@ -91,7 +86,8 @@ export default function Home() {
 
       const blob = await zip.generateAsync({
         type: "blob",
-        mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        mimeType:
+          file.type || "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         compression: "DEFLATE",
       });
 
